@@ -6,7 +6,7 @@
   "types": "dist",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nvhung9/mp3-api"
+    "url": "https://github.com/ankiusdsdvg/9"
   },
   "keywords": [
     "zingmp3",
@@ -14,7 +14,7 @@
     "zingmp3 api",
     "api"
   ],
-  "author": "mrhung9 <mrhung.io.vn>",
+  "author": "mp3>",
   "license": "ISC",
   "scripts": {
     "dev": "nodemon --watch server.js --watch public --ext js,html,css --exec node server.js",
