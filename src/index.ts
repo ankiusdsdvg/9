@@ -119,7 +119,7 @@ class ZingMp3Api {
             })
         })
         .catch((err) => {
-          console.log(err)
+          rejects(err)
         })
     })
   }
