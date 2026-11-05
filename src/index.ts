@@ -86,17 +86,6 @@ class ZingMp3Api {
       }
     )
   }
-  // Search Song All - lấy danh sách bài hát theo page/count
-public searchAll(name: string, page: string = "1", count: string = "15"): Promise<any> {
-  const path = "/api/v2/search/song";
-
-  return this.requestZingMp3(path, {
-    q: name,
-    page: page,
-    count: count,
-    sig: this.hashParamNoId(path)
-  });
-}
 
   private requestZingMp3(path: string, qs: object): Promise<any> {
     return new Promise<any>((resolve, rejects) => {
@@ -313,6 +302,18 @@ public searchAll(name: string, page: string = "1", count: string = "15"): Promis
         })
     })
   }
+// Search Song All - lấy danh sách bài hát theo page/count
+public searchAll(name: string, page: string = "1", count: string = "15"): Promise<any> {
+  const path = "/api/v2/search/song";
+
+  return this.requestZingMp3(path, {
+    q: name,
+    page: page,
+    count: count,
+    sig: this.hashParamNoId(path)
+  });
+}
+
 
   // getListMV
   public getListMV(id: string, page: string, count: string): Promise<any> {
