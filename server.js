@@ -133,21 +133,16 @@ app.get('/api/lyric', async (req, res) => {
   }
 });
 
-// search
-  public search(name: string): Promise<any> {
-    return new Promise<any>((resolve, rejects) => {
-      this.requestZingMp3("/api/v2/search/multi", {
-        q: name,
-        sig: this.hashParamNoId("/api/v2/search/multi")
-      })
-        .then((res) => {
-          resolve(res)
-        })
-        .catch((err) => {
-          rejects(err)
-        })
-    })
+app.get('/api/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) return res.status(400).json({ error: 'Missing q' });
+    const data = await ZingMp3.search(String(q));
+    res.json(data);
+  } catch (e) {
+    res.status(e?.response?.status || 500).json({ error: e?.message || 'Internal Error' });
   }
+});
 app.get('/api/list-mv', async (req, res) => {
   try {
     const { id, page = '1', count = '15' } = req.query;
