@@ -135,15 +135,67 @@ app.get('/api/lyric', async (req, res) => {
 
 app.get('/api/search', async (req, res) => {
   try {
-    const { q } = req.query;
-    if (!q) return res.status(400).json({ error: 'Missing q' });
-    const data = await ZingMp3.search(String(q));
-    res.json(data);
+    const { q, limit = '15' } = req.query;
+
+    if (!q) {
+      return res.status(400).json({
+        error: 'Missing q'
+      });
+    }
+
+    const count = Math.min(
+      Math.max(parseInt(limit, 10) || 15, 1),
+      30
+    );
+
+    // Gọi API tìm kiếm Zing MP3
+    const response = await ZingMp3.search(String(q));
+
+    const originalSongs = Array.isArray(response?.data?.songs)
+      ? response.data.songs
+      : [];
+
+    // Loại bỏ bài hát trùng ID
+    const seen = new Set();
+
+    const songs = originalSongs
+      .filter(song => {
+        if (!song?.encodeId || seen.has(song.encodeId)) {
+          return false;
+        }
+
+        seen.add(song.encodeId);
+        return true;
+      })
+      .slice(0, count)
+      .map(song => ({
+        encodeId: song.encodeId,
+        title: song.title,
+        artistsNames: song.artistsNames,
+        duration: song.duration,
+        thumbnail: song.thumbnail,
+        thumbnailM: song.thumbnailM,
+        album: song.album,
+        isWorldWide: song.isWorldWide
+      }));
+
+    res.json({
+      err: response?.err ?? 0,
+      msg: response?.msg ?? 'Success',
+      data: {
+        total: songs.length,
+        songs
+      }
+    });
+
   } catch (e) {
-    res.status(e?.response?.status || 500).json({ error: e?.message || 'Internal Error' });
+    console.error('Search error:', e);
+
+    res.status(e?.response?.status || 500).json({
+      error: e?.message || 'Internal Error'
+    });
   }
 });
-
 app.get('/api/list-mv', async (req, res) => {
   try {
     const { id, page = '1', count = '15' } = req.query;
