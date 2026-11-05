@@ -135,94 +135,67 @@ app.get('/api/lyric', async (req, res) => {
 
 app.get('/api/search', async (req, res) => {
   try {
-    const q = String(req.query.q || '').trim();
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const count = Math.min(Math.max(parseInt(req.query.count || req.query.limit, 10) || 15, 1), 50);
+    const { q, limit = '15' } = req.query;
 
     if (!q) {
-      return res.status(400).json({ err: 1, msg: 'Missing q', data: null });
+      return res.status(400).json({
+        error: 'Missing q'
+      });
     }
 
-    // Ưu tiên endpoint tìm kiếm bài hát có phân trang.
-    let response;
-    if (typeof ZingMp3.searchAll === 'function') {
-      response = await ZingMp3.searchAll(q, String(page), String(count));
-    }
+    const count = Math.min(
+      Math.max(parseInt(limit, 10) || 15, 1),
+      30
+    );
 
-    const payload = response?.data || {};
-    let rawSongs = [
-      payload.songs,
-      payload.items,
-      payload.data?.songs,
-      payload.data?.items
-    ].find(Array.isArray);
+    // Gọi API tìm kiếm Zing MP3
+    const response = await ZingMp3.search(String(q));
 
-    // Một số phiên bản API trả cấu trúc tìm kiếm multi thay vì danh sách song.
-    if (!rawSongs) {
-      const fallback = await ZingMp3.search(q);
-      const fallbackSongs = fallback?.data?.songs;
-      if (Array.isArray(fallbackSongs)) {
-        rawSongs = fallbackSongs;
-        response = fallback;
-      } else {
-        return res.json({
-          err: response?.err ?? fallback?.err ?? 0,
-          msg: response?.msg || fallback?.msg || 'Success',
-          data: {
-            total: Number(payload.total) || 0,
-            hasMore: Boolean(payload.hasMore),
-            page,
-            count,
-            songs: [],
-            warning: 'API có trả metadata nhưng không tìm thấy mảng songs/items.',
-            responseKeys: Object.keys(payload)
-          }
-        });
-      }
-    }
+    const originalSongs = Array.isArray(response?.data?.songs)
+      ? response.data.songs
+      : [];
 
+    // Loại bỏ bài hát trùng ID
     const seen = new Set();
-    const songs = rawSongs
+
+    const songs = originalSongs
       .filter(song => {
-        const id = song?.encodeId || song?.id;
-        if (!id || seen.has(id)) return false;
-        seen.add(id);
+        if (!song?.encodeId || seen.has(song.encodeId)) {
+          return false;
+        }
+
+        seen.add(song.encodeId);
         return true;
       })
+      .slice(0, count)
       .map(song => ({
-        encodeId: song.encodeId || song.id,
-        title: song.title || song.name || '',
-        artistsNames: song.artistsNames || song.artistNames || '',
-        duration: song.duration || 0,
-        thumbnail: song.thumbnail || song.thumbnailM || song.thumbnail_medium || '',
-        thumbnailM: song.thumbnailM || song.thumbnail || '',
-        album: song.album || null,
+        encodeId: song.encodeId,
+        title: song.title,
+        artistsNames: song.artistsNames,
+        duration: song.duration,
+        thumbnail: song.thumbnail,
+        thumbnailM: song.thumbnailM,
+        album: song.album,
         isWorldWide: song.isWorldWide
-      }))
-      .slice(0, count);
+      }));
 
     res.json({
       err: response?.err ?? 0,
-      msg: response?.msg || 'Success',
+      msg: response?.msg ?? 'Success',
       data: {
-        total: Number(payload.total) || songs.length,
-        hasMore: typeof payload.hasMore === 'boolean'
-          ? payload.hasMore
-          : songs.length === count,
-        page,
-        count,
+        total: songs.length,
         songs
       }
     });
+
   } catch (e) {
     console.error('Search error:', e);
+
     res.status(e?.response?.status || 500).json({
-      err: 1,
       error: e?.message || 'Internal Error'
     });
   }
 });
-
 app.get('/api/list-mv', async (req, res) => {
   try {
     const { id, page = '1', count = '15' } = req.query;
