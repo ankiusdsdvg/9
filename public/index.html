@@ -30,7 +30,7 @@
         <input id="kw" type="text" placeholder="ví dụ: lạc trôi" />
       </div>
       <div style="display:flex; align-items:flex-end; gap:8px;">
-        <button id="btnSearchV2">Tìm kiếm</button>
+        <button id="btnSearchV2">Tìm kiếm</button><button id="btnLoadMore" disabled>Tải thêm</button>
       </div>
     </div>
   </div>
@@ -182,24 +182,62 @@
 
     // mv: đã ẩn UI, bỏ handler
 
-    // Tìm kiếm theo từ khóa
-    document.getElementById('btnSearchV2').onclick = async () => {
+    // Tìm kiếm theo từ khóa: mỗi trang 15 bài, có thể tải trang tiếp theo.
+    let searchPage = 1;
+    let searchTotal = 0;
+    let searchSongs = [];
+    const searchButton = document.getElementById('btnSearchV2');
+    const moreButton = document.getElementById('btnLoadMore');
+
+    async function runSongSearch(reset = true) {
       const q = document.getElementById('kw').value.trim();
       if (!q) return setOut('Vui lòng nhập từ khóa');
-      try {
-        const res = await call('/api/search', { q });
-        const songs = Array.isArray(res?.data?.songs) ? res.data.songs : [];
-        const concise = songs.map(pickSongFields);
-        // auto điền Song ID bài đầu vào playback nếu có
-        if (concise[0]?.encodeId) {
-          const inp = document.getElementById('songId');
-          if (inp) inp.value = concise[0].encodeId;
-        }
-        setOut({ total: concise.length, songs: concise });
-      } catch (e) {
-        setOut(String(e));
+      if (reset) {
+        searchPage = 1;
+        searchSongs = [];
+      } else {
+        searchPage += 1;
       }
-    };
+
+      searchButton.disabled = true;
+      moreButton.disabled = true;
+      setOut('Đang tìm kiếm...');
+      try {
+        const res = await call('/api/search', { q, page: searchPage, count: 15 });
+        const songs = Array.isArray(res?.data?.songs) ? res.data.songs : [];
+        const known = new Set(searchSongs.map(s => s.encodeId));
+        searchSongs = searchSongs.concat(songs.filter(s => s.encodeId && !known.has(s.encodeId)));
+        searchTotal = Number(res?.data?.total) || searchSongs.length;
+
+        if (searchSongs[0]?.encodeId) {
+          document.getElementById('songId').value = searchSongs[0].encodeId;
+        }
+
+        setOut({
+          keyword: q,
+          total: searchTotal,
+          loaded: searchSongs.length,
+          page: searchPage,
+          hasMore: Boolean(res?.data?.hasMore),
+          songs: searchSongs.map(pickSongFields),
+          warning: res?.data?.warning,
+          responseKeys: res?.data?.responseKeys
+        });
+
+        moreButton.disabled = !res?.data?.hasMore || songs.length === 0;
+      } catch (e) {
+        if (!reset) searchPage = Math.max(1, searchPage - 1);
+        setOut(String(e));
+      } finally {
+        searchButton.disabled = false;
+      }
+    }
+
+    searchButton.onclick = () => runSongSearch(true);
+    moreButton.onclick = () => runSongSearch(false);
+    document.getElementById('kw').addEventListener('keydown', e => {
+      if (e.key === 'Enter') runSongSearch(true);
+    });
 
     // Hành động theo Song ID
     const player = document.getElementById('player');
